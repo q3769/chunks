@@ -204,7 +204,7 @@ public final class ChunkStitcher implements Stitcher {
          * @param chunks The set of chunks to sort.
          * @return A list of chunks, sorted by their index.
          */
-        private static List<Chunk> sorted(Set<Chunk> chunks) {
+        private static List<Chunk> sorted(@NonNull Set<Chunk> chunks) {
             return chunks.stream()
                     .sorted(Comparator.comparingInt(Chunk::getIndex))
                     .collect(Collectors.toList());
