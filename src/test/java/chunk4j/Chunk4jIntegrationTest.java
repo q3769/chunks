@@ -30,9 +30,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
-/**
- * @author Qingtian Wang
- */
+/** @author Qingtian Wang */
 class Chunk4jIntegrationTest {
 
     private static final String DATA_TEXT1 =

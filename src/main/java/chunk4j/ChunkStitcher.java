@@ -28,9 +28,7 @@ import com.github.benmanes.caffeine.cache.*;
 import elf4j.Logger;
 import java.time.Duration;
 import java.util.*;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.annotation.concurrent.ThreadSafe;
@@ -39,6 +37,9 @@ import lombok.NonNull;
 import lombok.ToString;
 
 /**
+ * The ChunkStitcher class is responsible for stitching together chunks of data. It is thread-safe and uses a cache to
+ * store chunk groups. The class also provides a Builder for easy configuration.
+ *
  * @author Qingtian Wang
  */
 @ThreadSafe
@@ -52,6 +53,12 @@ public final class ChunkStitcher implements Stitcher {
     private final int maxStitchedByteSize;
     private final long maxStitchingGroups;
 
+    /**
+     * Private constructor for the ChunkStitcher class. It is used by the Builder class to create a new instance of
+     * ChunkStitcher.
+     *
+     * @param builder The builder used to configure the ChunkStitcher.
+     */
     private ChunkStitcher(@NonNull Builder builder) {
         maxStitchTime = builder.maxStitchTime;
         maxStitchingGroups = builder.maxStitchingGroups;
@@ -63,20 +70,28 @@ public final class ChunkStitcher implements Stitcher {
                 .build();
     }
 
+    /**
+     * Helper method to create an Optional from a byte array. If the byte array is null, an empty Optional is returned.
+     * Otherwise, an Optional containing the byte array is returned.
+     *
+     * @param bytes The byte array to wrap in an Optional.
+     * @return An Optional containing the byte array, or an empty Optional if the byte array is null.
+     */
     private static Optional<byte[]> optionalOf(@Nullable byte[] bytes) {
         return bytes == null ? Optional.empty() : Optional.of(bytes);
     }
 
     /**
-     * @param chunk to be added to its corresponding chunk group, possibly stitched to restore the original data bytes
-     * if this is the last chunk the group is expecting.
-     * @return non-empty <code>Optional</code> containing the original data bytes restored by the stitcher if the input
-     * chunk is the last missing piece of the entire chunk group representing the original data; otherwise, if the input
-     * chunk is not the last one expected, empty <code>Optional</code>.
+     * Adds a chunk to its corresponding chunk group. If the chunk is the last one expected by the group, the original
+     * data bytes are restored and returned.
+     *
+     * @param chunk The chunk to be added to its corresponding chunk group.
+     * @return An Optional containing the original data bytes if the chunk is the last one expected by the group, or an
+     *     empty Optional otherwise.
      */
     @Override
     public Optional<byte[]> stitch(@NonNull Chunk chunk) {
-        logger.atTrace().log((Supplier) () -> "Received: " + chunk);
+        logger.atTrace().log(() -> "Received: " + chunk);
         StitchedBytesHolder stitchedBytesHolder = new StitchedBytesHolder();
         chunkGroups.asMap().compute(chunk.getGroupId(), (k, group) -> {
             if (group == null) {
@@ -90,6 +105,13 @@ public final class ChunkStitcher implements Stitcher {
         return optionalOf(stitchedBytesHolder.getStitchedBytes());
     }
 
+    /**
+     * Checks if the byte size of the stitching group would exceed the maximum allowed size after adding the given
+     * chunk. If the size would be exceeded, an IllegalArgumentException is thrown.
+     *
+     * @param chunk The chunk to be added to the stitching group.
+     * @param group The stitching group to which the chunk is to be added.
+     */
     private void checkStitchingGroupByteSize(Chunk chunk, ChunkStitchingGroup group) {
         if (maxStitchedByteSize == DEFAULT_MAX_STITCHED_BYTE_SIZE) {
             return;
@@ -106,7 +128,7 @@ public final class ChunkStitcher implements Stitcher {
     }
 
     /**
-     * The stitcher builder.
+     * The Builder class for the ChunkStitcher class. It provides a fluent interface for configuring a ChunkStitcher.
      */
     public static class Builder {
         private Duration maxStitchTime = Duration.ofNanos(DEFAULT_MAX_STITCH_TIME_NANOS);
@@ -114,16 +136,19 @@ public final class ChunkStitcher implements Stitcher {
         private long maxStitchingGroups = DEFAULT_MAX_STITCHING_GROUPS;
 
         /**
-         * @return chunk stitcher built
+         * Builds a new ChunkStitcher with the current configuration of the Builder.
+         *
+         * @return A new ChunkStitcher.
          */
         public ChunkStitcher build() {
             return new ChunkStitcher(this);
         }
 
         /**
-         * @param maxStitchTime max duration from the very first chunk received by the stitcher to the original data is
-         * restored completely
-         * @return the fluent builder
+         * Sets the maximum duration from the first chunk received to the complete restoration of the original data.
+         *
+         * @param maxStitchTime The maximum duration.
+         * @return The Builder, for method chaining.
          */
         public Builder maxStitchTime(Duration maxStitchTime) {
             this.maxStitchTime = maxStitchTime;
@@ -131,9 +156,11 @@ public final class ChunkStitcher implements Stitcher {
         }
 
         /**
-         * @param v Optional safeguard against excessive large size of target restore data - either by mistake or
-         * malicious attack. Default to no size limit.
-         * @return same builder instance
+         * Sets the maximum byte size of the restored data. This can be used as a safeguard against excessively large
+         * data sizes.
+         *
+         * @param v The maximum byte size.
+         * @return The Builder, for method chaining.
          */
         public Builder maxStitchedByteSize(int v) {
             this.maxStitchedByteSize = v;
@@ -141,8 +168,10 @@ public final class ChunkStitcher implements Stitcher {
         }
 
         /**
-         * @param maxGroups max number of pending stitch groups. These groups will take up memory at runtime.
-         * @return the fluent builder
+         * Sets the maximum number of pending stitch groups. These groups will take up memory at runtime.
+         *
+         * @param maxGroups The maximum number of groups.
+         * @return The Builder, for method chaining.
          */
         public Builder maxStitchingGroups(long maxGroups) {
             this.maxStitchingGroups = maxGroups;
@@ -150,24 +179,44 @@ public final class ChunkStitcher implements Stitcher {
         }
     }
 
+    /**
+     * The ChunkStitchingGroup class represents a group of chunks that are to be stitched together. It is not
+     * thread-safe.
+     */
     @NotThreadSafe
     @ToString
     private static class ChunkStitchingGroup {
         private final Set<Chunk> chunks = new HashSet<>();
         private final int expectedChunkTotal;
 
+        /**
+         * Constructor for the ChunkStitchingGroup class.
+         *
+         * @param expectedChunkTotal The total number of chunks expected by the group.
+         */
         ChunkStitchingGroup(int expectedChunkTotal) {
             this.expectedChunkTotal = expectedChunkTotal;
         }
 
+        /**
+         * Sorts a set of chunks by their index.
+         *
+         * @param chunks The set of chunks to sort.
+         * @return A list of chunks, sorted by their index.
+         */
         private static List<Chunk> sorted(Set<Chunk> chunks) {
             return chunks.stream()
                     .sorted(Comparator.comparingInt(Chunk::getIndex))
                     .collect(Collectors.toList());
         }
 
-        @Nonnull
-        private static byte[] stitchToBytes(@NonNull Set<Chunk> chunks) {
+        /**
+         * Stitches a set of chunks together into a byte array.
+         *
+         * @param chunks The set of chunks to stitch together.
+         * @return A byte array containing the stitched chunks.
+         */
+        private static byte @NonNull [] stitchToBytes(@NonNull Set<Chunk> chunks) {
             byte[] stitchedBytes = new byte[totalByteSizeOf(chunks)];
             int chunkStartPosition = 0;
             for (Chunk chunk : sorted(chunks)) {
@@ -178,15 +227,23 @@ public final class ChunkStitcher implements Stitcher {
             return stitchedBytes;
         }
 
+        /**
+         * Calculates the total byte size of a collection of chunks.
+         *
+         * @param chunks The collection of chunks.
+         * @return The total byte size.
+         */
         private static int totalByteSizeOf(@NonNull Collection<Chunk> chunks) {
             return chunks.stream().mapToInt(chunk -> chunk.getBytes().length).sum();
         }
 
         /**
-         * @param chunk to be added in the stitching group, possibly stitched if this is the last chunk the group is
-         * expecting.
-         * @return the bytes by stitching together all the chunks in the group if the passed-in chunk is the last one
-         * the group is expecting; otherwise, <code>null</code>.
+         * Adds a chunk to the stitching group. If the chunk is the last one expected by the group, all chunks in the
+         * group are stitched together and returned.
+         *
+         * @param chunk The chunk to be added to the group.
+         * @return A byte array containing the stitched chunks if the chunk is the last one expected by the group, or
+         *     null otherwise.
          */
         @Nullable public byte[] addAndStitch(Chunk chunk) {
             if (!chunks.add(chunk)) {
@@ -194,29 +251,50 @@ public final class ChunkStitcher implements Stitcher {
                 return null;
             }
             if (getCurrentChunkTotal() == getExpectedChunkTotal()) {
-                logger.atDebug().log((Supplier) () -> "Stitching all " + chunks.size() + " chunks in group " + this);
+                logger.atDebug().log(() -> "Stitching all " + chunks.size() + " chunks in group " + this);
                 return stitchToBytes(chunks);
             }
             return null;
         }
 
+        /**
+         * Returns the current total number of chunks in the group.
+         *
+         * @return The current total number of chunks.
+         */
         int getCurrentChunkTotal() {
             return chunks.size();
         }
 
+        /**
+         * Returns the current total byte size of the group.
+         *
+         * @return The current total byte size.
+         */
         int getCurrentGroupByteSize() {
             return totalByteSizeOf(chunks);
         }
 
+        /**
+         * Returns the total number of chunks expected by the group.
+         *
+         * @return The total number of chunks expected.
+         */
         int getExpectedChunkTotal() {
             return expectedChunkTotal;
         }
     }
 
+    /** The SinceCreation class is used to determine the expiry time of a chunk group in the cache. */
     private static class SinceCreation implements Expiry<UUID, ChunkStitchingGroup> {
 
         private final Duration duration;
 
+        /**
+         * Constructor for the SinceCreation class.
+         *
+         * @param duration The duration after which a chunk group should expire.
+         */
         SinceCreation(Duration duration) {
             this.duration = duration;
         }
@@ -246,15 +324,19 @@ public final class ChunkStitcher implements Stitcher {
         }
     }
 
+    /** The StitchedBytesHolder class is a simple data holder for a byte array. */
     @Data
     private static class StitchedBytesHolder {
         @Nullable byte[] stitchedBytes;
     }
 
+    /**
+     * The InvoluntaryEvictionLogger class is used to log when a chunk group is involuntarily evicted from the cache.
+     */
     private class InvoluntaryEvictionLogger implements RemovalListener<UUID, ChunkStitchingGroup> {
 
         @Override
-        public void onRemoval(UUID groupId, ChunkStitchingGroup chunkStitchingGroup, @Nonnull RemovalCause cause) {
+        public void onRemoval(UUID groupId, ChunkStitchingGroup chunkStitchingGroup, @NonNull RemovalCause cause) {
             switch (cause) {
                 case EXPIRED:
                     logger.atWarn()

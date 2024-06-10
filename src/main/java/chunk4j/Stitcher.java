@@ -27,20 +27,23 @@ package chunk4j;
 import java.util.Optional;
 
 /**
+ * The Stitcher interface defines the contract for stitching chunks of data back into their original form.
+ * Implementations of this interface should provide a method to stitch a chunk into its corresponding chunk group. If
+ * the chunk is the last one expected by the group, the original data bytes are restored and returned. Otherwise, the
+ * chunk group is kept around, waiting for the missing chunk(s) to arrive. The Stitcher interface is thread-safe.
+ *
  * @author Qingtian Wang
  */
 public interface Stitcher {
 
     /**
-     * @param chunk
-     *         to be added to its corresponding chunk group. If this chunk renders its group "complete", i.e. all the
-     *         chunks of the original data blob are gathered, then the original data blob will be stitched together and
-     *         returned. Otherwise, if the chunk group still hasn't gathered all the chunks needed, even with the
-     *         addition of this chunk, then the whole group will be kept around, waiting for the missing chunk(s) to
-     *         arrive.
-     * @return non-empty <code>Optional</code> containing the original data blob restored by the stitcher if the input
-     *         chunk is the last missing piece of the entire chunk group representing the original data; otherwise, if
-     *         the input chunk is not the last one expected, then empty <code>Optional</code>.
+     * Adds a chunk to its corresponding chunk group. If the chunk is the last one expected by the group, the original
+     * data bytes are restored and returned. Otherwise, the chunk group is kept around, waiting for the missing chunk(s)
+     * to arrive.
+     *
+     * @param chunk The chunk to be added to its corresponding chunk group.
+     * @return An Optional containing the original data bytes if the chunk is the last one expected by the group, or an
+     *     empty Optional otherwise.
      */
     Optional<byte[]> stitch(Chunk chunk);
 }
