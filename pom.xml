@@ -28,7 +28,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>io.github.q3769</groupId>
     <artifactId>chunk4j</artifactId>
-    <version>20230729.0.20240610</version>
+    <version>20230729.0.20240820</version>
     <packaging>jar</packaging>
     <name>chunk4j</name>
     <description>A Java API to chop up larger data blobs into smaller "chunks" of a pre-defined size, and stitch the
@@ -121,6 +121,16 @@
                 <repository>
                     <id>ossrh</id>
                     <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+                </repository>
+            </distributionManagement>
+        </profile>
+        <profile>
+            <id>github</id>
+            <distributionManagement>
+                <repository>
+                    <id>github</id>
+                    <name>GitHub Apache Maven Packages</name>
+                    <url>https://maven.pkg.github.com/q3769/chunk4j</url>
                 </repository>
             </distributionManagement>
         </profile>
