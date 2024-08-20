@@ -1,4 +1,4 @@
-name: Publish Artifact
+name: Publish to OSSRH
 
 on:
   release:
